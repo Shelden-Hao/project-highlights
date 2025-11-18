@@ -12,9 +12,14 @@ const DataSimulator = require('./dataSimulator');
 class WebSocketServer {
   constructor() {
     // 存储每个通道的订阅者（客户端连接）
+    // Map<通道名, Set<客户端连接>> - 每个通道有哪些订阅者
+    // 例如：{ 'threat_dashboard': Set([socket1, socket2]) }
     this.channels = new Map();
     
     // 存储每个客户端订阅的通道
+    // Map<客户端连接, Set<通道名>> - 每个客户端订阅了哪些通道
+    // 客户端订阅者和通道是一个多对多的关系（双向映射）
+    // 例如：{ socket1: Set(['threat_dashboard', 'honeypot_log']) }
     this.clientChannels = new Map();
     
     // 心跳检测定时器
@@ -89,6 +94,21 @@ class WebSocketServer {
       clientChannels.add(channel);
     }
 
+    /**
+     *  订阅前后的数据变化：
+     *  // 订阅前
+        channels: {}
+        clientChannels: { socket1: Set([]) }
+
+        // 订阅后
+        channels: { 
+          'threat_dashboard': Set([socket1]) 
+        }
+        clientChannels: { 
+          socket1: Set(['threat_dashboard']) 
+        }
+     */
+
     console.log(`客户端订阅通道: ${channel}`);
   }
 
@@ -114,15 +134,36 @@ class WebSocketServer {
 
   /**
    * 处理客户端断开
+   *  // 断开前
+      channels: {
+        'threat_dashboard': Set([socket1, socket2]),
+        'honeypot_log': Set([socket1])
+      }
+      clientChannels: {
+        socket1: Set(['threat_dashboard', 'honeypot_log']),
+        socket2: Set(['threat_dashboard'])
+      }
+
+      // 断开后
+      channels: {
+        'threat_dashboard': Set([socket2])
+        // 'honeypot_log' 被删除（没有订阅者了）
+      }
+      clientChannels: {
+        socket2: Set(['threat_dashboard'])
+        // socket1 被删除
+      }
    */
   handleDisconnect(socket) {
     // 从所有通道中移除该客户端
     const clientChannels = this.clientChannels.get(socket);
     if (clientChannels) {
+      // 从每个通道订阅者列表中移除该客户端
       clientChannels.forEach(channel => {
         const channelSubscribers = this.channels.get(channel);
         if (channelSubscribers) {
           channelSubscribers.delete(socket);
+          // 如果通道没有订阅者了，删除该通道
           if (channelSubscribers.size === 0) {
             this.channels.delete(channel);
           }
@@ -136,6 +177,23 @@ class WebSocketServer {
 
   /**
    * 向指定通道的所有订阅者广播消息
+   * DataSimulator 生成数据
+          ↓
+      调用 broadcast('threat_dashboard', data)
+          ↓
+      查找 channels.get('threat_dashboard')
+          ↓
+      获得订阅者集合：[socket1, socket2, socket3]
+          ↓
+      遍历每个 socket
+          ↓
+      检查连接状态是否为 OPEN
+          ↓
+      发送 JSON 消息
+          ↓
+      如果发送失败，标记为失效连接
+          ↓
+      清理失效连接
    */
   broadcast(channel, data) {
     const subscribers = this.channels.get(channel);

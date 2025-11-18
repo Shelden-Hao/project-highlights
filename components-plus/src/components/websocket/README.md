@@ -81,10 +81,25 @@ function MyComponent() {
 
 ### WebSocketClient
 
-#### 构造函数
+#### 构造函数和状态机
 
 ```typescript
 new WebSocketClient(options: WSOptions)
+```
+
+```
+DISCONNECTED（未连接）
+    ↓ connect()
+CONNECTING（连接中）
+    ↓ onopen
+CONNECTED（已连接）
+    ↓ onclose
+RECONNECTING（重连中）
+    ↓ 重连成功
+CONNECTED
+    ↓ 重连失败多次
+ERROR（错误）
+
 ```
 
 #### 方法

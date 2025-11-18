@@ -15,7 +15,7 @@ class MessageHandler {
   handle(socket, message) {
     switch (message.type) {
       case MessageType.PING:
-        // 心跳请求，回复心跳响应
+        // 心跳请求，一旦收到PING消息，立刻回复心跳响应PONG
         this.server.send(socket, {
           type: MessageType.PONG,
           timestamp: Date.now()

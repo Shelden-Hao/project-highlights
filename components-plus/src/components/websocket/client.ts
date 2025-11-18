@@ -75,7 +75,7 @@ export class WebSocketClient {
 
   /**
    * 设置 WebSocket 事件处理器
-   * 比如有事件：ws 连接(opopen)，心跳检测，重新订阅所有已经订阅的频道，发送队列中存在的消息
+   * 比如有事件：ws 连接(onopen)，心跳检测，重新订阅所有已经订阅的频道，发送断线期间积压的消息
    */
   private setupEventHandlers(): void {
     if (!this.ws) return;
@@ -258,6 +258,7 @@ export class WebSocketClient {
 
   /**
    * 启动心跳检测
+   * 默认每30s发送PING消息，设置10s超时定时器，如果10s没有收到PONG，关闭连接，触发重连
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
@@ -315,6 +316,7 @@ export class WebSocketClient {
 
     console.log(`准备重连 (第 ${this.reconnectAttempts} 次)...`);
     
+    // 等待3s，触发重连
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
